@@ -52,7 +52,11 @@ const simulateExtraction = async (
   // In reality, AI would detect distinct VINs / title blocks
   const vehicleTitles: VehicleTitle[] = [];
 
-  // Vehicle 1 - detected on page 1
+  // Simulate multiple documents if multiple files uploaded, or create mock second document
+  const doc1Id = files[0]?.id || 'doc1';
+  const doc2Id = files[1]?.id || 'doc2';
+
+  // Vehicle 1 - from first document, page 1
   const vehicle1Data: Record<string, { value: string | null; confidence: number; page: number }> = {
     'VIN (Vehicle Identification Number)': { value: '1HGCM82633A001481', confidence: 98, page: 1 },
     'Year': { value: '2024', confidence: 95, page: 1 },
@@ -82,13 +86,12 @@ const simulateExtraction = async (
     id: 'v1',
     vinEnding: '1481',
     fullVin: '1HGCM82633A001481',
-    sourceDocumentId: files[0]?.id || 'doc1',
+    sourceDocumentId: doc1Id,
     status: 'completed_with_warnings',
     fields: generateVehicleFields('v1', vehicle1Data),
   });
 
-  // Vehicle 2 - detected on page 2 (same or different document)
-  // Always add a second vehicle to demonstrate multi-vehicle handling
+  // Vehicle 2 - from first document, page 2
   const vehicle2Data: Record<string, { value: string | null; confidence: number; page: number }> = {
     'VIN (Vehicle Identification Number)': { value: '5YJSA1DN5DFP19425', confidence: 97, page: 2 },
     'Year': { value: '2023', confidence: 94, page: 2 },
@@ -118,10 +121,58 @@ const simulateExtraction = async (
     id: 'v2',
     vinEnding: '9425',
     fullVin: '5YJSA1DN5DFP19425',
-    sourceDocumentId: files[0]?.id || 'doc1', // Same document, different page
+    sourceDocumentId: doc1Id,
     status: 'completed',
     fields: generateVehicleFields('v2', vehicle2Data),
   });
+
+  // Vehicle 3 - from second document (simulated)
+  const vehicle3Data: Record<string, { value: string | null; confidence: number; page: number }> = {
+    'VIN (Vehicle Identification Number)': { value: '2C3CDXCT8NH107782', confidence: 96, page: 1 },
+    'Year': { value: '2022', confidence: 93, page: 1 },
+    'Make': { value: 'Dodge', confidence: 95, page: 1 },
+    'Model': { value: 'Challenger', confidence: 94, page: 1 },
+    'Body Style': { value: 'Coupe', confidence: 90, page: 1 },
+    'Title Number': { value: 'TN-2022-555444', confidence: 92, page: 1 },
+    'Title State': { value: 'Texas', confidence: 91, page: 1 },
+    'Title Type': { value: 'Clean', confidence: 88, page: 1 },
+    'Title Status': { value: 'Active', confidence: 86, page: 1 },
+    'Issue Date': { value: '03/10/2022', confidence: 91, page: 1 },
+    'Owner Name': { value: 'Robert James Wilson', confidence: 87, page: 1 },
+    'Owner Address': { value: '9012 Pine Road, Dallas, TX 75201', confidence: 82, page: 1 },
+    'Co-Owner Name': { value: 'Sarah Ann Wilson', confidence: 80, page: 1 },
+    'Lienholder Name': { value: 'Chase Auto Finance', confidence: 84, page: 1 },
+    'Lienholder Address': { value: '1111 Bank Street, Houston, TX 77001', confidence: 79, page: 1 },
+    'Lien Date': { value: '03/10/2022', confidence: 83, page: 1 },
+    'Lien Release Date': { value: null, confidence: 0, page: 1 },
+    'Odometer Reading': { value: '28,912', confidence: 85, page: 1 },
+    'Odometer Status': { value: 'Actual', confidence: 81, page: 1 },
+    'Brand/Remarks': { value: null, confidence: 0, page: 1 },
+    'Previous Title Number': { value: null, confidence: 0, page: 1 },
+    'Previous Title State': { value: null, confidence: 0, page: 1 },
+  };
+
+  vehicleTitles.push({
+    id: 'v3',
+    vinEnding: '7782',
+    fullVin: '2C3CDXCT8NH107782',
+    sourceDocumentId: doc2Id,
+    status: 'completed',
+    fields: generateVehicleFields('v3', vehicle3Data),
+  });
+
+  // Add mock second document if not already present
+  const updatedFiles = [...files];
+  if (files.length === 1) {
+    updatedFiles.push({
+      id: doc2Id,
+      file: files[0].file,
+      name: 'dealer_2.pdf',
+      size: 245000,
+      pageCount: 5,
+      status: 'completed',
+    });
+  }
 
   const hasWarnings = vehicleTitles.some(
     (v) => v.fields.some((f) => f.confidence < 70 && f.extractedValue !== null)
@@ -129,7 +180,7 @@ const simulateExtraction = async (
 
   return {
     id: `extraction-${Date.now()}`,
-    documents: files,
+    documents: updatedFiles,
     vehicleTitles,
     extractedAt: new Date(),
     status: hasWarnings ? 'completed_with_warnings' : 'completed',
@@ -143,6 +194,7 @@ export const useExtraction = () => {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [extractionResult, setExtractionResult] = useState<ExtractionResult | null>(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [activeCitation, setActiveCitation] = useState<Citation | null>(null);
@@ -198,6 +250,7 @@ export const useExtraction = () => {
     setProcessingSteps((prev) => prev.map((s) => ({ ...s, status: 'completed' })));
     setExtractionResult(result);
     setSelectedVehicleId(result.vehicleTitles[0]?.id || null);
+    setSelectedDocumentId(result.vehicleTitles[0]?.sourceDocumentId || null);
     setIsProcessing(false);
 
     toast.success('Extraction completed', {
@@ -340,9 +393,15 @@ export const useExtraction = () => {
     setFiles([]);
     setExtractionResult(null);
     setSelectedVehicleId(null);
+    setSelectedDocumentId(null);
     setHasUnsavedChanges(false);
     setProcessingSteps([]);
     setCurrentStepIndex(0);
+  }, []);
+
+  const selectVehicle = useCallback((vehicleId: string, documentId: string) => {
+    setSelectedVehicleId(vehicleId);
+    setSelectedDocumentId(documentId);
   }, []);
 
   return {
@@ -353,6 +412,7 @@ export const useExtraction = () => {
     currentStepIndex,
     extractionResult,
     selectedVehicleId,
+    selectedDocumentId,
     hasUnsavedChanges,
     viewerOpen,
     activeCitation,
@@ -368,7 +428,7 @@ export const useExtraction = () => {
     pushToDownstream,
     openCitation,
     closeCitation,
-    setSelectedVehicleId,
+    selectVehicle,
     resetExtraction,
   };
 };
