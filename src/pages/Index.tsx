@@ -1,5 +1,4 @@
 import { Header } from '@/components/Header';
-import { TrustBanner } from '@/components/TrustBanner';
 import { UploadDropzone } from '@/components/UploadDropzone';
 import { ProcessingIndicator } from '@/components/ProcessingIndicator';
 import { ExtractionSummary } from '@/components/ExtractionSummary';
@@ -46,9 +45,6 @@ const Index = () => {
 
       <main className="container mx-auto px-6 py-8 max-w-6xl">
         <div className="space-y-6">
-          {/* Trust Banner */}
-          <TrustBanner />
-
           {/* Upload Phase */}
           {!extractionResult && !isProcessing && (
             <div className="bg-card rounded-xl border border-border p-8">
