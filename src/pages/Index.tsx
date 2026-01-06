@@ -50,10 +50,10 @@ const Index = () => {
               <div className="max-w-xl mx-auto">
                 <div className="text-center mb-8">
                   <h2 className="text-2xl font-semibold text-foreground mb-2">
-                    Upload Title Documents
+                    Title Data Extraction & Verification
                   </h2>
                   <p className="text-muted-foreground">
-                    Upload vehicle title documents (insurance or dealer titles) for AI-powered extraction and review.
+                    Transform unstructured title documents into reviewable, structured data with full source traceability and audit support.
                   </p>
                 </div>
 
