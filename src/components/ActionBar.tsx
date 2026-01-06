@@ -76,14 +76,14 @@ export const ActionBar = ({
           className="gap-2"
         >
           <Send className="h-4 w-4" />
-          Push to Downstream
+          Push / Publish Data
         </Button>
       </div>
 
       <Dialog open={showPushDialog} onOpenChange={setShowPushDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Push to Downstream System</DialogTitle>
+            <DialogTitle>Push / Publish Data</DialogTitle>
             <DialogDescription>
               You are about to push the reviewed vehicle title data to the downstream system.
             </DialogDescription>
