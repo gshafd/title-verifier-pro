@@ -8,6 +8,7 @@ import {
   Citation,
 } from '@/types/extraction';
 import { toast } from 'sonner';
+import * as XLSX from 'xlsx';
 
 // Helper to generate fields for a vehicle
 const generateVehicleFields = (
@@ -274,14 +275,48 @@ export const useExtraction = () => {
   const exportToExcel = useCallback(() => {
     if (!extractionResult) return;
 
-    // Generate sheet names for each vehicle
-    const sheetNames = extractionResult.vehicleTitles
-      .map((v, i) => `Vehicle_${i + 1}_VIN_${v.vinEnding}`)
-      .join(', ');
+    // Create a new workbook
+    const workbook = XLSX.utils.book_new();
 
-    // In a real app, this would generate an actual Excel file with one sheet per vehicle
+    // Add a sheet for each vehicle
+    extractionResult.vehicleTitles.forEach((vehicle, index) => {
+      // Prepare data for this vehicle's sheet
+      const sheetData = vehicle.fields.map((field) => ({
+        'Field Name': field.fieldName,
+        'Extracted Value': field.extractedValue || 'Not Found',
+        'Confidence': field.extractedValue ? `${field.confidence}%` : 'N/A',
+        'Status': field.isEdited ? 'Edited' : 'Original',
+        'Page': field.citation?.pageNumber || 'N/A',
+      }));
+
+      // Create worksheet from data
+      const worksheet = XLSX.utils.json_to_sheet(sheetData);
+
+      // Set column widths
+      worksheet['!cols'] = [
+        { wch: 30 }, // Field Name
+        { wch: 40 }, // Extracted Value
+        { wch: 12 }, // Confidence
+        { wch: 10 }, // Status
+        { wch: 8 },  // Page
+      ];
+
+      // Generate sheet name (Excel has 31 char limit for sheet names)
+      const sheetName = `Vehicle_${index + 1}_VIN_${vehicle.vinEnding}`;
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    });
+
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filename = `Vehicle_Titles_${timestamp}.xlsx`;
+
+    // Write and download the file
+    XLSX.writeFile(workbook, filename);
+
     toast.success('Excel file downloaded', {
-      description: `Sheets: ${sheetNames}`,
+      description: `${extractionResult.vehicleTitles.length} vehicle sheet(s) exported`,
     });
   }, [extractionResult]);
 
