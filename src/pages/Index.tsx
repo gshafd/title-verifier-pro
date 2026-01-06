@@ -2,10 +2,6 @@ import { Header } from '@/components/Header';
 import { UploadDropzone } from '@/components/UploadDropzone';
 import { ProcessingIndicator } from '@/components/ProcessingIndicator';
 import { DocumentVehicleTable } from '@/components/DocumentVehicleTable';
-import { VehicleContextBreadcrumb } from '@/components/VehicleContextBreadcrumb';
-import { ExtractionTable } from '@/components/ExtractionTable';
-import { ActionBar } from '@/components/ActionBar';
-import { DocumentViewer } from '@/components/DocumentViewer';
 import { useExtraction } from '@/hooks/useExtraction';
 import { Button } from '@/components/ui/button';
 import { RotateCcw } from 'lucide-react';
@@ -17,39 +13,11 @@ const Index = () => {
     processingSteps,
     currentStepIndex,
     extractionResult,
-    selectedVehicleId,
-    selectedDocumentId,
-    hasUnsavedChanges,
-    viewerOpen,
-    activeCitation,
     addFiles,
     removeFile,
     startExtraction,
-    updateField,
-    revertField,
-    saveReview,
-    exportToExcel,
-    pushToDownstream,
-    openCitation,
-    closeCitation,
-    selectVehicle,
     resetExtraction,
   } = useExtraction();
-
-  const selectedVehicle = extractionResult?.vehicleTitles.find(
-    (v) => v.id === selectedVehicleId
-  );
-
-  const selectedDocument = extractionResult?.documents.find(
-    (d) => d.id === selectedDocumentId
-  );
-
-  // Calculate vehicle index within its document
-  const vehicleIndexInDoc = selectedVehicle
-    ? extractionResult?.vehicleTitles
-        .filter((v) => v.sourceDocumentId === selectedVehicle.sourceDocumentId)
-        .findIndex((v) => v.id === selectedVehicle.id) + 1
-    : 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -110,54 +78,11 @@ const Index = () => {
               <DocumentVehicleTable
                 documents={extractionResult.documents}
                 vehicles={extractionResult.vehicleTitles}
-                selectedVehicleId={selectedVehicleId}
-                onSelectVehicle={selectVehicle}
-              />
-
-              {/* Context Breadcrumb */}
-              {selectedVehicle && (
-                <VehicleContextBreadcrumb
-                  document={selectedDocument}
-                  vehicle={selectedVehicle}
-                  vehicleIndex={vehicleIndexInDoc || 1}
-                />
-              )}
-
-              {/* Extraction Table */}
-              {selectedVehicle && (
-                <ExtractionTable
-                  fields={selectedVehicle.fields}
-                  onFieldUpdate={(fieldName, newValue) =>
-                    updateField(selectedVehicle.id, fieldName, newValue)
-                  }
-                  onFieldRevert={(fieldName) =>
-                    revertField(selectedVehicle.id, fieldName)
-                  }
-                  onCitationClick={openCitation}
-                />
-              )}
-
-              {/* Action Bar */}
-              <ActionBar
-                vehicles={extractionResult.vehicleTitles}
-                onSave={saveReview}
-                onExport={exportToExcel}
-                onPush={pushToDownstream}
-                isSaving={false}
-                hasUnsavedChanges={hasUnsavedChanges}
               />
             </div>
           )}
         </div>
       </main>
-
-      {/* Document Viewer Modal */}
-      <DocumentViewer
-        isOpen={viewerOpen}
-        onClose={closeCitation}
-        citation={activeCitation}
-        totalPages={files[0]?.pageCount || 1}
-      />
     </div>
   );
 };

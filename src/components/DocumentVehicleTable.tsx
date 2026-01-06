@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { VehicleTitle, UploadedFile } from '@/types/extraction';
 import {
   Table,
@@ -13,18 +14,15 @@ import { FileText, Eye } from 'lucide-react';
 interface DocumentVehicleTableProps {
   documents: UploadedFile[];
   vehicles: VehicleTitle[];
-  selectedVehicleId: string | null;
-  onSelectVehicle: (vehicleId: string, documentId: string) => void;
 }
 
 export const DocumentVehicleTable = ({
   documents,
   vehicles,
-  selectedVehicleId,
-  onSelectVehicle,
 }: DocumentVehicleTableProps) => {
+  const navigate = useNavigate();
   // Create rows: one per vehicle, with document info
-  const rows = vehicles.map((vehicle, index) => {
+  const rows = vehicles.map((vehicle) => {
     const document = documents.find((d) => d.id === vehicle.sourceDocumentId);
     const vehicleIndexInDoc = vehicles
       .filter((v) => v.sourceDocumentId === vehicle.sourceDocumentId)
@@ -32,12 +30,10 @@ export const DocumentVehicleTable = ({
 
     return {
       vehicleId: vehicle.id,
-      documentId: vehicle.sourceDocumentId,
       documentName: document?.name || 'Unknown Document',
       pageCount: document?.pageCount || 0,
       vehicleLabel: `Vehicle ${vehicleIndexInDoc}`,
       vinMasked: `****${vehicle.vinEnding}`,
-      isSelected: vehicle.id === selectedVehicleId,
     };
   });
 
@@ -63,10 +59,7 @@ export const DocumentVehicleTable = ({
         </TableHeader>
         <TableBody>
           {rows.map((row) => (
-            <TableRow
-              key={row.vehicleId}
-              className={row.isSelected ? 'bg-accent/50' : undefined}
-            >
+            <TableRow key={row.vehicleId}>
               <TableCell>
                 <div className="flex items-center gap-2">
                   <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -86,13 +79,13 @@ export const DocumentVehicleTable = ({
               </TableCell>
               <TableCell className="text-right">
                 <Button
-                  variant={row.isSelected ? 'secondary' : 'outline'}
+                  variant="outline"
                   size="sm"
-                  onClick={() => onSelectVehicle(row.vehicleId, row.documentId)}
+                  onClick={() => navigate(`/vehicle/${row.vehicleId}`)}
                   className="gap-2"
                 >
                   <Eye className="h-3.5 w-3.5" />
-                  {row.isSelected ? 'Viewing' : 'View vehicle info'}
+                  View vehicle info
                 </Button>
               </TableCell>
             </TableRow>
