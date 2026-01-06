@@ -2,7 +2,7 @@ import { Header } from '@/components/Header';
 import { UploadDropzone } from '@/components/UploadDropzone';
 import { ProcessingIndicator } from '@/components/ProcessingIndicator';
 import { DocumentVehicleTable } from '@/components/DocumentVehicleTable';
-import { useExtraction } from '@/hooks/useExtraction';
+import { useExtractionContext } from '@/contexts/ExtractionContext';
 import { Button } from '@/components/ui/button';
 import { RotateCcw } from 'lucide-react';
 
@@ -17,7 +17,7 @@ const Index = () => {
     removeFile,
     startExtraction,
     resetExtraction,
-  } = useExtraction();
+  } = useExtractionContext();
 
   return (
     <div className="min-h-screen bg-background">

@@ -6,7 +6,7 @@ import { ActionBar } from '@/components/ActionBar';
 import { DocumentViewer } from '@/components/DocumentViewer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { useExtraction } from '@/hooks/useExtraction';
+import { useExtractionContext } from '@/contexts/ExtractionContext';
 
 const VehicleDetail = () => {
   const { vehicleId } = useParams<{ vehicleId: string }>();
@@ -25,7 +25,7 @@ const VehicleDetail = () => {
     pushToDownstream,
     openCitation,
     closeCitation,
-  } = useExtraction();
+  } = useExtractionContext();
 
   const selectedVehicle = extractionResult?.vehicleTitles.find(
     (v) => v.id === vehicleId
@@ -66,21 +66,12 @@ const VehicleDetail = () => {
 
       <main className="container mx-auto px-6 py-8 max-w-6xl">
         <div className="space-y-6 animate-fade-in">
-          {/* Back Button */}
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/')}
-            className="gap-2 -ml-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Overview
-          </Button>
-
-          {/* Context Breadcrumb */}
+          {/* Context Breadcrumb with back navigation */}
           <VehicleContextBreadcrumb
             document={selectedDocument}
             vehicle={selectedVehicle}
             vehicleIndex={vehicleIndexInDoc || 1}
+            showBackLink
           />
 
           {/* Extraction Table */}
