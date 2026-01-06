@@ -1,7 +1,8 @@
 import { Header } from '@/components/Header';
 import { UploadDropzone } from '@/components/UploadDropzone';
 import { ProcessingIndicator } from '@/components/ProcessingIndicator';
-import { VehicleSelector } from '@/components/VehicleSelector';
+import { DocumentVehicleTable } from '@/components/DocumentVehicleTable';
+import { VehicleContextBreadcrumb } from '@/components/VehicleContextBreadcrumb';
 import { ExtractionTable } from '@/components/ExtractionTable';
 import { ActionBar } from '@/components/ActionBar';
 import { DocumentViewer } from '@/components/DocumentViewer';
@@ -17,6 +18,7 @@ const Index = () => {
     currentStepIndex,
     extractionResult,
     selectedVehicleId,
+    selectedDocumentId,
     hasUnsavedChanges,
     viewerOpen,
     activeCitation,
@@ -30,13 +32,24 @@ const Index = () => {
     pushToDownstream,
     openCitation,
     closeCitation,
-    setSelectedVehicleId,
+    selectVehicle,
     resetExtraction,
   } = useExtraction();
 
   const selectedVehicle = extractionResult?.vehicleTitles.find(
     (v) => v.id === selectedVehicleId
   );
+
+  const selectedDocument = extractionResult?.documents.find(
+    (d) => d.id === selectedDocumentId
+  );
+
+  // Calculate vehicle index within its document
+  const vehicleIndexInDoc = selectedVehicle
+    ? extractionResult?.vehicleTitles
+        .filter((v) => v.sourceDocumentId === selectedVehicle.sourceDocumentId)
+        .findIndex((v) => v.id === selectedVehicle.id) + 1
+    : 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -93,12 +106,22 @@ const Index = () => {
                 </Button>
               </div>
 
-              {/* Vehicle Selector */}
-              <VehicleSelector
+              {/* Document & Vehicle Overview Table */}
+              <DocumentVehicleTable
+                documents={extractionResult.documents}
                 vehicles={extractionResult.vehicleTitles}
-                selectedVehicleId={selectedVehicleId || ''}
-                onSelectVehicle={setSelectedVehicleId}
+                selectedVehicleId={selectedVehicleId}
+                onSelectVehicle={selectVehicle}
               />
+
+              {/* Context Breadcrumb */}
+              {selectedVehicle && (
+                <VehicleContextBreadcrumb
+                  document={selectedDocument}
+                  vehicle={selectedVehicle}
+                  vehicleIndex={vehicleIndexInDoc || 1}
+                />
+              )}
 
               {/* Extraction Table */}
               {selectedVehicle && (
