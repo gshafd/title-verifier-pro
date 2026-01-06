@@ -40,7 +40,7 @@ export const VehicleSelector = ({
                 <Car className="h-4 w-4" />
                 <span>Vehicle {index + 1}</span>
                 <span className="text-xs text-muted-foreground">
-                  – VIN ending {vehicle.vinEnding}
+                  – VIN ****{vehicle.vinEnding}
                 </span>
                 {hasWarnings && (
                   <AlertTriangle className="h-3.5 w-3.5 ml-1" />

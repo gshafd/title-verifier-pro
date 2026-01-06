@@ -9,130 +9,118 @@ import {
 } from '@/types/extraction';
 import { toast } from 'sonner';
 
+// Helper to generate fields for a vehicle
+const generateVehicleFields = (
+  vehicleId: string,
+  vehicleData: Record<string, { value: string | null; confidence: number; page: number }>
+) => {
+  return TITLE_FIELDS.map((fieldName, index) => {
+    const fieldData = vehicleData[fieldName] || { value: null, confidence: 0, page: 1 };
+    const hasCitation = fieldData.value !== null;
+
+    return {
+      fieldName,
+      extractedValue: fieldData.value,
+      confidence: fieldData.confidence,
+      citation: hasCitation
+        ? {
+            vehicleId,
+            pageNumber: fieldData.page,
+            boundingBox: {
+              x: 10 + (index % 4) * 20,
+              y: 15 + Math.floor(index / 4) * 8,
+              width: 35,
+              height: 5,
+            },
+          }
+        : null,
+      isEdited: false,
+      originalValue: fieldData.value,
+    };
+  });
+};
+
 // Simulated extraction that would normally come from AI/ML backend
+// A single document can contain multiple vehicle titles
 const simulateExtraction = async (
   files: UploadedFile[]
 ): Promise<ExtractionResult> => {
   await new Promise((resolve) => setTimeout(resolve, 3000));
 
-  // Generate sample vehicle titles based on uploaded documents
-  const vehicleTitles: VehicleTitle[] = [
-    {
-      id: 'v1',
-      vinEnding: '1481',
-      fullVin: '1HGCM82633A001481',
-      sourceDocumentId: files[0]?.id || 'doc1',
-      status: 'completed_with_warnings',
-      fields: TITLE_FIELDS.map((fieldName, index) => {
-        // Simulate extracted values - some found, some not
-        const extractedValues: Record<string, { value: string | null; confidence: number }> = {
-          'VIN (Vehicle Identification Number)': { value: '1HGCM82633A001481', confidence: 98 },
-          'Year': { value: '2024', confidence: 95 },
-          'Make': { value: 'Honda', confidence: 92 },
-          'Model': { value: 'Accord', confidence: 91 },
-          'Body Style': { value: 'Sedan', confidence: 88 },
-          'Title Number': { value: 'TN-2024-123456', confidence: 96 },
-          'Title State': { value: 'California', confidence: 94 },
-          'Title Type': { value: 'Clean', confidence: 89 },
-          'Title Status': { value: 'Active', confidence: 87 },
-          'Issue Date': { value: '01/15/2024', confidence: 93 },
-          'Owner Name': { value: 'John Michael Smith', confidence: 85 },
-          'Owner Address': { value: '1234 Main Street, Anytown, CA 12345', confidence: 78 },
-          'Co-Owner Name': { value: null, confidence: 0 },
-          'Lienholder Name': { value: 'First National Bank', confidence: 82 },
-          'Lienholder Address': { value: 'PO Box 12345, Finance City, FC 54321', confidence: 65 },
-          'Lien Date': { value: '01/15/2024', confidence: 79 },
-          'Lien Release Date': { value: null, confidence: 0 },
-          'Odometer Reading': { value: '15,234', confidence: 72 },
-          'Odometer Status': { value: 'Actual', confidence: 68 },
-          'Brand/Remarks': { value: null, confidence: 0 },
-          'Previous Title Number': { value: null, confidence: 0 },
-          'Previous Title State': { value: null, confidence: 0 },
-        };
+  // Simulate detecting multiple vehicle titles from the uploaded document(s)
+  // In reality, AI would detect distinct VINs / title blocks
+  const vehicleTitles: VehicleTitle[] = [];
 
-        const fieldData = extractedValues[fieldName] || { value: null, confidence: 0 };
-        const hasCitation = fieldData.value !== null;
+  // Vehicle 1 - detected on page 1
+  const vehicle1Data: Record<string, { value: string | null; confidence: number; page: number }> = {
+    'VIN (Vehicle Identification Number)': { value: '1HGCM82633A001481', confidence: 98, page: 1 },
+    'Year': { value: '2024', confidence: 95, page: 1 },
+    'Make': { value: 'Honda', confidence: 92, page: 1 },
+    'Model': { value: 'Accord', confidence: 91, page: 1 },
+    'Body Style': { value: 'Sedan', confidence: 88, page: 1 },
+    'Title Number': { value: 'TN-2024-123456', confidence: 96, page: 1 },
+    'Title State': { value: 'California', confidence: 94, page: 1 },
+    'Title Type': { value: 'Clean', confidence: 89, page: 1 },
+    'Title Status': { value: 'Active', confidence: 87, page: 1 },
+    'Issue Date': { value: '01/15/2024', confidence: 93, page: 1 },
+    'Owner Name': { value: 'John Michael Smith', confidence: 85, page: 1 },
+    'Owner Address': { value: '1234 Main Street, Anytown, CA 12345', confidence: 78, page: 1 },
+    'Co-Owner Name': { value: null, confidence: 0, page: 1 },
+    'Lienholder Name': { value: 'First National Bank', confidence: 82, page: 1 },
+    'Lienholder Address': { value: 'PO Box 12345, Finance City, FC 54321', confidence: 65, page: 1 },
+    'Lien Date': { value: '01/15/2024', confidence: 79, page: 1 },
+    'Lien Release Date': { value: null, confidence: 0, page: 1 },
+    'Odometer Reading': { value: '15,234', confidence: 72, page: 1 },
+    'Odometer Status': { value: 'Actual', confidence: 68, page: 1 },
+    'Brand/Remarks': { value: null, confidence: 0, page: 1 },
+    'Previous Title Number': { value: null, confidence: 0, page: 1 },
+    'Previous Title State': { value: null, confidence: 0, page: 1 },
+  };
 
-        return {
-          fieldName,
-          extractedValue: fieldData.value,
-          confidence: fieldData.confidence,
-          citation: hasCitation
-            ? {
-                pageNumber: 1,
-                boundingBox: {
-                  x: 10 + (index % 4) * 20,
-                  y: 15 + Math.floor(index / 4) * 8,
-                  width: 35,
-                  height: 5,
-                },
-              }
-            : null,
-          isEdited: false,
-          originalValue: fieldData.value,
-        };
-      }),
-    },
-  ];
+  vehicleTitles.push({
+    id: 'v1',
+    vinEnding: '1481',
+    fullVin: '1HGCM82633A001481',
+    sourceDocumentId: files[0]?.id || 'doc1',
+    status: 'completed_with_warnings',
+    fields: generateVehicleFields('v1', vehicle1Data),
+  });
 
-  // Add second vehicle if multiple documents
-  if (files.length > 1) {
-    vehicleTitles.push({
-      id: 'v2',
-      vinEnding: '9425',
-      fullVin: '5YJSA1DN5DFP19425',
-      sourceDocumentId: files[1]?.id || 'doc2',
-      status: 'completed',
-      fields: TITLE_FIELDS.map((fieldName, index) => {
-        const extractedValues: Record<string, { value: string | null; confidence: number }> = {
-          'VIN (Vehicle Identification Number)': { value: '5YJSA1DN5DFP19425', confidence: 97 },
-          'Year': { value: '2023', confidence: 94 },
-          'Make': { value: 'Tesla', confidence: 96 },
-          'Model': { value: 'Model S', confidence: 95 },
-          'Body Style': { value: 'Hatchback', confidence: 91 },
-          'Title Number': { value: 'TN-2023-789012', confidence: 93 },
-          'Title State': { value: 'Nevada', confidence: 92 },
-          'Title Type': { value: 'Clean', confidence: 90 },
-          'Title Status': { value: 'Active', confidence: 89 },
-          'Issue Date': { value: '06/20/2023', confidence: 94 },
-          'Owner Name': { value: 'Jane Elizabeth Doe', confidence: 88 },
-          'Owner Address': { value: '5678 Oak Avenue, Las Vegas, NV 89101', confidence: 85 },
-          'Co-Owner Name': { value: null, confidence: 0 },
-          'Lienholder Name': { value: null, confidence: 0 },
-          'Lienholder Address': { value: null, confidence: 0 },
-          'Lien Date': { value: null, confidence: 0 },
-          'Lien Release Date': { value: null, confidence: 0 },
-          'Odometer Reading': { value: '8,456', confidence: 86 },
-          'Odometer Status': { value: 'Actual', confidence: 84 },
-          'Brand/Remarks': { value: null, confidence: 0 },
-          'Previous Title Number': { value: 'TN-2022-456789', confidence: 75 },
-          'Previous Title State': { value: 'California', confidence: 73 },
-        };
+  // Vehicle 2 - detected on page 2 (same or different document)
+  // Always add a second vehicle to demonstrate multi-vehicle handling
+  const vehicle2Data: Record<string, { value: string | null; confidence: number; page: number }> = {
+    'VIN (Vehicle Identification Number)': { value: '5YJSA1DN5DFP19425', confidence: 97, page: 2 },
+    'Year': { value: '2023', confidence: 94, page: 2 },
+    'Make': { value: 'Tesla', confidence: 96, page: 2 },
+    'Model': { value: 'Model S', confidence: 95, page: 2 },
+    'Body Style': { value: 'Hatchback', confidence: 91, page: 2 },
+    'Title Number': { value: 'TN-2023-789012', confidence: 93, page: 2 },
+    'Title State': { value: 'Nevada', confidence: 92, page: 2 },
+    'Title Type': { value: 'Clean', confidence: 90, page: 2 },
+    'Title Status': { value: 'Active', confidence: 89, page: 2 },
+    'Issue Date': { value: '06/20/2023', confidence: 94, page: 2 },
+    'Owner Name': { value: 'Jane Elizabeth Doe', confidence: 88, page: 2 },
+    'Owner Address': { value: '5678 Oak Avenue, Las Vegas, NV 89101', confidence: 85, page: 2 },
+    'Co-Owner Name': { value: null, confidence: 0, page: 2 },
+    'Lienholder Name': { value: null, confidence: 0, page: 2 },
+    'Lienholder Address': { value: null, confidence: 0, page: 2 },
+    'Lien Date': { value: null, confidence: 0, page: 2 },
+    'Lien Release Date': { value: null, confidence: 0, page: 2 },
+    'Odometer Reading': { value: '8,456', confidence: 86, page: 2 },
+    'Odometer Status': { value: 'Actual', confidence: 84, page: 2 },
+    'Brand/Remarks': { value: null, confidence: 0, page: 2 },
+    'Previous Title Number': { value: 'TN-2022-456789', confidence: 75, page: 2 },
+    'Previous Title State': { value: 'California', confidence: 73, page: 2 },
+  };
 
-        const fieldData = extractedValues[fieldName] || { value: null, confidence: 0 };
-        const hasCitation = fieldData.value !== null;
-
-        return {
-          fieldName,
-          extractedValue: fieldData.value,
-          confidence: fieldData.confidence,
-          citation: hasCitation
-            ? {
-                pageNumber: 1,
-                boundingBox: {
-                  x: 10 + (index % 4) * 20,
-                  y: 15 + Math.floor(index / 4) * 8,
-                  width: 35,
-                  height: 5,
-                },
-              }
-            : null,
-          isEdited: false,
-          originalValue: fieldData.value,
-        };
-      }),
-    });
-  }
+  vehicleTitles.push({
+    id: 'v2',
+    vinEnding: '9425',
+    fullVin: '5YJSA1DN5DFP19425',
+    sourceDocumentId: files[0]?.id || 'doc1', // Same document, different page
+    status: 'completed',
+    fields: generateVehicleFields('v2', vehicle2Data),
+  });
 
   const hasWarnings = vehicleTitles.some(
     (v) => v.fields.some((f) => f.confidence < 70 && f.extractedValue !== null)
@@ -286,9 +274,14 @@ export const useExtraction = () => {
   const exportToExcel = useCallback(() => {
     if (!extractionResult) return;
 
-    // In a real app, this would generate an actual Excel file
+    // Generate sheet names for each vehicle
+    const sheetNames = extractionResult.vehicleTitles
+      .map((v, i) => `Vehicle_${i + 1}_VIN_${v.vinEnding}`)
+      .join(', ');
+
+    // In a real app, this would generate an actual Excel file with one sheet per vehicle
     toast.success('Excel file downloaded', {
-      description: `vehicle_titles_${new Date().toISOString().split('T')[0]}.xlsx`,
+      description: `Sheets: ${sheetNames}`,
     });
   }, [extractionResult]);
 

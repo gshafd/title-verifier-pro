@@ -9,6 +9,7 @@ export interface UploadedFile {
 }
 
 export interface Citation {
+  vehicleId: string;
   pageNumber: number;
   boundingBox: {
     x: number;
