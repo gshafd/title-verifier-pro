@@ -1,12 +1,148 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { Header } from '@/components/Header';
+import { TrustBanner } from '@/components/TrustBanner';
+import { UploadDropzone } from '@/components/UploadDropzone';
+import { ProcessingIndicator } from '@/components/ProcessingIndicator';
+import { ExtractionSummary } from '@/components/ExtractionSummary';
+import { VehicleSelector } from '@/components/VehicleSelector';
+import { ExtractionTable } from '@/components/ExtractionTable';
+import { ActionBar } from '@/components/ActionBar';
+import { DocumentViewer } from '@/components/DocumentViewer';
+import { useExtraction } from '@/hooks/useExtraction';
+import { Button } from '@/components/ui/button';
+import { RotateCcw } from 'lucide-react';
 
 const Index = () => {
+  const {
+    files,
+    isProcessing,
+    processingSteps,
+    currentStepIndex,
+    extractionResult,
+    selectedVehicleId,
+    hasUnsavedChanges,
+    viewerOpen,
+    activeCitation,
+    addFiles,
+    removeFile,
+    startExtraction,
+    updateField,
+    revertField,
+    saveReview,
+    exportToExcel,
+    pushToDownstream,
+    openCitation,
+    closeCitation,
+    setSelectedVehicleId,
+    resetExtraction,
+  } = useExtraction();
+
+  const selectedVehicle = extractionResult?.vehicleTitles.find(
+    (v) => v.id === selectedVehicleId
+  );
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <Header />
+
+      <main className="container mx-auto px-6 py-8 max-w-6xl">
+        <div className="space-y-6">
+          {/* Trust Banner */}
+          <TrustBanner />
+
+          {/* Upload Phase */}
+          {!extractionResult && !isProcessing && (
+            <div className="bg-card rounded-xl border border-border p-8">
+              <div className="max-w-xl mx-auto">
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl font-semibold text-foreground mb-2">
+                    Upload Title Documents
+                  </h2>
+                  <p className="text-muted-foreground">
+                    Upload vehicle title documents (insurance or dealer titles) for AI-powered extraction and review.
+                  </p>
+                </div>
+
+                <UploadDropzone
+                  files={files}
+                  onFilesAdd={addFiles}
+                  onFileRemove={removeFile}
+                  onSubmit={startExtraction}
+                  isSubmitting={isProcessing}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Processing Phase */}
+          {isProcessing && (
+            <div className="bg-card rounded-xl border border-border p-8">
+              <ProcessingIndicator
+                steps={processingSteps}
+                currentStepIndex={currentStepIndex}
+              />
+            </div>
+          )}
+
+          {/* Results Phase */}
+          {extractionResult && !isProcessing && (
+            <div className="space-y-6 animate-fade-in">
+              {/* Summary */}
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <ExtractionSummary result={extractionResult} />
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={resetExtraction}
+                  className="gap-2 flex-shrink-0"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  New Extraction
+                </Button>
+              </div>
+
+              {/* Vehicle Selector */}
+              <VehicleSelector
+                vehicles={extractionResult.vehicleTitles}
+                selectedVehicleId={selectedVehicleId || ''}
+                onSelectVehicle={setSelectedVehicleId}
+              />
+
+              {/* Extraction Table */}
+              {selectedVehicle && (
+                <ExtractionTable
+                  fields={selectedVehicle.fields}
+                  onFieldUpdate={(fieldName, newValue) =>
+                    updateField(selectedVehicle.id, fieldName, newValue)
+                  }
+                  onFieldRevert={(fieldName) =>
+                    revertField(selectedVehicle.id, fieldName)
+                  }
+                  onCitationClick={openCitation}
+                />
+              )}
+
+              {/* Action Bar */}
+              <ActionBar
+                vehicles={extractionResult.vehicleTitles}
+                onSave={saveReview}
+                onExport={exportToExcel}
+                onPush={pushToDownstream}
+                isSaving={false}
+                hasUnsavedChanges={hasUnsavedChanges}
+              />
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* Document Viewer Modal */}
+      <DocumentViewer
+        isOpen={viewerOpen}
+        onClose={closeCitation}
+        citation={activeCitation}
+        totalPages={files[0]?.pageCount || 1}
+      />
     </div>
   );
 };
