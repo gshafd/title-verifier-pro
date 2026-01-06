@@ -16,7 +16,7 @@ export const Header = ({ showSettings = true }: HeaderProps) => {
             </div>
             <div>
               <h1 className="text-lg font-semibold text-foreground">Vehicle Title Extraction</h1>
-              <p className="text-sm text-muted-foreground">FDRYZE Document Analysis for accurate title data</p>
+              <p className="text-sm text-muted-foreground">Accurate Title Data</p>
             </div>
           </div>
           
