@@ -1,7 +1,6 @@
 import { Header } from '@/components/Header';
 import { UploadDropzone } from '@/components/UploadDropzone';
 import { ProcessingIndicator } from '@/components/ProcessingIndicator';
-import { ExtractionSummary } from '@/components/ExtractionSummary';
 import { VehicleSelector } from '@/components/VehicleSelector';
 import { ExtractionTable } from '@/components/ExtractionTable';
 import { ActionBar } from '@/components/ActionBar';
@@ -82,15 +81,12 @@ const Index = () => {
           {/* Results Phase */}
           {extractionResult && !isProcessing && (
             <div className="space-y-6 animate-fade-in">
-              {/* Summary */}
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <ExtractionSummary result={extractionResult} />
-                </div>
+              {/* Header with New Extraction button */}
+              <div className="flex items-center justify-end">
                 <Button
                   variant="outline"
                   onClick={resetExtraction}
-                  className="gap-2 flex-shrink-0"
+                  className="gap-2"
                 >
                   <RotateCcw className="h-4 w-4" />
                   New Extraction
