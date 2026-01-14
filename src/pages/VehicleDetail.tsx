@@ -88,7 +88,7 @@ const VehicleDetail = () => {
 
           {/* Action Bar */}
           <ActionBar
-            vehicles={extractionResult.vehicleTitles}
+            vehicle={selectedVehicle}
             onSave={saveReview}
             onExport={exportToExcel}
             onPush={pushToDownstream}
