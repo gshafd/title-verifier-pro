@@ -1,23 +1,24 @@
 import { useState, useEffect } from 'react';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Download, Eye, FileText, CheckCircle2 } from 'lucide-react';
-import { VehicleTitle, ExtractedField } from '@/types/extraction';
+import { Download, Eye, FileText, CheckCircle2, Loader2 } from 'lucide-react';
+import { VehicleTitle } from '@/types/extraction';
 
-// State form configurations
+// State form configurations with PDF field mappings
 const STATE_FORMS: Record<string, {
   name: string;
   pdfPath: string;
   fields: Array<{
     id: string;
     label: string;
-    mappedField?: string; // Maps to extraction field
+    mappedField?: string;
     type: 'text' | 'checkbox' | 'date';
     required?: boolean;
+    pdfFieldName?: string; // Actual PDF form field name if different
   }>;
 }> = {
   'California': {
@@ -127,6 +128,7 @@ export const StateFormFiller = ({ vehicle, onComplete, onCancel }: StateFormFill
   const [formData, setFormData] = useState<Record<string, string | boolean>>({});
   const [showPreview, setShowPreview] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   // Get the state from the vehicle's extracted fields
   const stateField = vehicle.fields.find(f => f.fieldName === 'Title State');
@@ -163,61 +165,277 @@ export const StateFormFiller = ({ vehicle, onComplete, onCancel }: StateFormFill
     }
 
     setFormData(initialData);
-  }, [vehicle, formConfig]);
+  }, [vehicle, formConfig, vehicleState]);
 
   const handleInputChange = (fieldId: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [fieldId]: value }));
   };
 
+  // Generate filled PDF using pdf-lib
+  const generateFilledPDF = async (): Promise<Uint8Array> => {
+    try {
+      // Try to load the original PDF template
+      const response = await fetch(formConfig.pdfPath);
+      const existingPdfBytes = await response.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(existingPdfBytes, { ignoreEncryption: true });
+      
+      // Try to fill form fields if they exist
+      try {
+        const form = pdfDoc.getForm();
+        const fields = form.getFields();
+        
+        // If the PDF has form fields, try to fill them
+        if (fields.length > 0) {
+          formConfig.fields.forEach(fieldConfig => {
+            const value = formData[fieldConfig.id];
+            if (value !== undefined && value !== '') {
+              try {
+                if (fieldConfig.type === 'checkbox') {
+                  const checkbox = form.getCheckBox(fieldConfig.pdfFieldName || fieldConfig.id);
+                  if (value) checkbox.check();
+                } else {
+                  const textField = form.getTextField(fieldConfig.pdfFieldName || fieldConfig.id);
+                  textField.setText(String(value));
+                }
+              } catch {
+                // Field not found, will use overlay method
+              }
+            }
+          });
+          form.flatten();
+        }
+      } catch {
+        // No form fields or error, continue with overlay
+      }
+
+      // Add an overlay page with all the filled data
+      const pages = pdfDoc.getPages();
+      const firstPage = pages[0];
+      const { width, height } = firstPage.getSize();
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+      // Add a semi-transparent overlay with filled data at the bottom
+      let yPosition = 120;
+      const fontSize = 8;
+      const lineHeight = 12;
+
+      // Draw a white background box for the data overlay
+      firstPage.drawRectangle({
+        x: 20,
+        y: 10,
+        width: width - 40,
+        height: 110,
+        color: rgb(1, 1, 1),
+        opacity: 0.9,
+      });
+
+      // Draw border
+      firstPage.drawRectangle({
+        x: 20,
+        y: 10,
+        width: width - 40,
+        height: 110,
+        borderColor: rgb(0.2, 0.2, 0.2),
+        borderWidth: 0.5,
+      });
+
+      // Title
+      firstPage.drawText('FILLED DATA SUMMARY', {
+        x: 30,
+        y: yPosition - 5,
+        size: 9,
+        font: boldFont,
+        color: rgb(0.1, 0.1, 0.1),
+      });
+      yPosition -= lineHeight + 5;
+
+      // Draw filled data in columns
+      const col1X = 30;
+      const col2X = width / 2 + 10;
+      let currentCol = 1;
+      let col1Y = yPosition;
+      let col2Y = yPosition;
+
+      formConfig.fields.forEach((field) => {
+        const value = formData[field.id];
+        if (value !== undefined && value !== '' && value !== false) {
+          const displayValue = field.type === 'checkbox' ? '☑' : String(value);
+          const text = `${field.label}: ${displayValue}`;
+          const truncatedText = text.length > 50 ? text.substring(0, 47) + '...' : text;
+
+          if (currentCol === 1 && col1Y > 25) {
+            firstPage.drawText(truncatedText, {
+              x: col1X,
+              y: col1Y,
+              size: fontSize,
+              font: font,
+              color: rgb(0.2, 0.2, 0.2),
+            });
+            col1Y -= lineHeight;
+            currentCol = 2;
+          } else if (col2Y > 25) {
+            firstPage.drawText(truncatedText, {
+              x: col2X,
+              y: col2Y,
+              size: fontSize,
+              font: font,
+              color: rgb(0.2, 0.2, 0.2),
+            });
+            col2Y -= lineHeight;
+            currentCol = 1;
+          }
+        }
+      });
+
+      return await pdfDoc.save();
+    } catch (error) {
+      console.error('Error loading PDF template, creating new document:', error);
+      // Fallback: Create a new PDF document with the form data
+      return await createNewFilledPDF();
+    }
+  };
+
+  // Create a new PDF with form data (fallback)
+  const createNewFilledPDF = async (): Promise<Uint8Array> => {
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([612, 792]); // Letter size
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const { height } = page.getSize();
+
+    let yPosition = height - 50;
+    const fontSize = 10;
+    const lineHeight = 18;
+    const margin = 50;
+
+    // Title
+    page.drawText(formConfig.name, {
+      x: margin,
+      y: yPosition,
+      size: 14,
+      font: boldFont,
+      color: rgb(0, 0, 0),
+    });
+    yPosition -= 30;
+
+    // Vehicle Info
+    page.drawText(`Vehicle: VIN ending ${vehicle.vinEnding}`, {
+      x: margin,
+      y: yPosition,
+      size: 11,
+      font: font,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+    yPosition -= 15;
+
+    page.drawText(`State: ${vehicleState}`, {
+      x: margin,
+      y: yPosition,
+      size: 11,
+      font: font,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+    yPosition -= 30;
+
+    // Separator line
+    page.drawLine({
+      start: { x: margin, y: yPosition },
+      end: { x: 562, y: yPosition },
+      thickness: 1,
+      color: rgb(0.8, 0.8, 0.8),
+    });
+    yPosition -= 20;
+
+    // Form Fields
+    formConfig.fields.forEach((field) => {
+      if (yPosition < 50) {
+        // Add new page if needed
+        return;
+      }
+
+      const value = formData[field.id];
+      let displayValue: string;
+
+      if (field.type === 'checkbox') {
+        displayValue = value ? '☑ Yes' : '☐ No';
+      } else {
+        displayValue = String(value || '—');
+      }
+
+      // Field label
+      page.drawText(`${field.label}:`, {
+        x: margin,
+        y: yPosition,
+        size: fontSize,
+        font: boldFont,
+        color: rgb(0.2, 0.2, 0.2),
+      });
+
+      // Field value
+      page.drawText(displayValue, {
+        x: margin + 250,
+        y: yPosition,
+        size: fontSize,
+        font: font,
+        color: rgb(0, 0, 0),
+      });
+
+      yPosition -= lineHeight;
+    });
+
+    // Footer
+    yPosition = 30;
+    page.drawText(`Generated: ${new Date().toLocaleString()}`, {
+      x: margin,
+      y: yPosition,
+      size: 8,
+      font: font,
+      color: rgb(0.5, 0.5, 0.5),
+    });
+
+    return await pdfDoc.save();
+  };
+
   const handleDownload = async () => {
     setIsDownloading(true);
     
-    // Simulate generating filled PDF
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Create a simple text representation for download
-    const content = generateFormContent();
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${vehicleState}_Duplicate_Title_${vehicle.vinEnding}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+      const pdfBytes = await generateFilledPDF();
+      const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${vehicleState}_Duplicate_Title_${vehicle.vinEnding}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+    }
     
     setIsDownloading(false);
   };
 
-  const generateFormContent = (): string => {
-    let content = `${formConfig.name}\n`;
-    content += `${'='.repeat(50)}\n\n`;
-    content += `Vehicle: VIN ending ${vehicle.vinEnding}\n`;
-    content += `State: ${vehicleState}\n\n`;
-    content += `FORM DATA:\n`;
-    content += `${'-'.repeat(30)}\n\n`;
-
-    formConfig.fields.forEach(field => {
-      const value = formData[field.id];
-      if (field.type === 'checkbox') {
-        content += `${field.label}: ${value ? '☑ Yes' : '☐ No'}\n`;
-      } else {
-        content += `${field.label}: ${value || 'Not provided'}\n`;
-      }
-    });
-
-    content += `\n${'='.repeat(50)}\n`;
-    content += `Generated: ${new Date().toLocaleString()}\n`;
-    
-    return content;
+  const handlePreview = async () => {
+    setIsDownloading(true);
+    try {
+      const pdfBytes = await generateFilledPDF();
+      const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
+      setShowPreview(true);
+    } catch (error) {
+      console.error('Error generating preview:', error);
+    }
+    setIsDownloading(false);
   };
 
-  const handlePreviewPDF = () => {
+  const handleViewOriginalForm = () => {
     if (formConfig.pdfPath) {
       window.open(formConfig.pdfPath, '_blank');
     }
-    setShowPreview(true);
   };
 
   const isFormValid = () => {
@@ -229,43 +447,32 @@ export const StateFormFiller = ({ vehicle, onComplete, onCancel }: StateFormFill
       });
   };
 
-  if (showPreview) {
+  // Cleanup preview URL on unmount
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
+  if (showPreview && previewUrl) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-foreground">Form Preview</h3>
+          <h3 className="font-semibold text-foreground">PDF Preview</h3>
           <Button variant="outline" size="sm" onClick={() => setShowPreview(false)}>
             Back to Edit
           </Button>
         </div>
         
-        <Card className="bg-secondary/30">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              {formConfig.name}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[300px]">
-              <div className="space-y-2 text-sm">
-                {formConfig.fields.map(field => {
-                  const value = formData[field.id];
-                  return (
-                    <div key={field.id} className="flex justify-between py-1 border-b border-border/50">
-                      <span className="text-muted-foreground">{field.label}</span>
-                      <span className="font-medium text-foreground">
-                        {field.type === 'checkbox' 
-                          ? (value ? '☑ Yes' : '☐ No')
-                          : (value || '—')}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
+        <div className="border border-border rounded-lg overflow-hidden bg-muted">
+          <iframe
+            src={previewUrl}
+            className="w-full h-[400px]"
+            title="PDF Preview"
+          />
+        </div>
 
         <div className="flex gap-3 justify-end">
           <Button variant="outline" onClick={onCancel}>
@@ -278,7 +485,7 @@ export const StateFormFiller = ({ vehicle, onComplete, onCancel }: StateFormFill
             className="gap-2"
           >
             <Download className="h-4 w-4" />
-            {isDownloading ? 'Generating...' : 'Download Form'}
+            {isDownloading ? 'Generating...' : 'Download PDF'}
           </Button>
           <Button onClick={onComplete} className="gap-2">
             <CheckCircle2 className="h-4 w-4" />
@@ -290,8 +497,8 @@ export const StateFormFiller = ({ vehicle, onComplete, onCancel }: StateFormFill
   }
 
   return (
-    <div className="space-y-4">
-      <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
+    <div className="flex flex-col h-full max-h-[60vh]">
+      <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 mb-4 flex-shrink-0">
         <div className="flex items-center gap-2 text-sm">
           <FileText className="h-4 w-4 text-primary" />
           <span className="font-medium text-foreground">
@@ -303,8 +510,8 @@ export const StateFormFiller = ({ vehicle, onComplete, onCancel }: StateFormFill
         </p>
       </div>
 
-      <ScrollArea className="h-[350px] pr-4">
-        <div className="space-y-4">
+      <div className="flex-1 overflow-y-auto pr-2 min-h-0">
+        <div className="space-y-4 pb-4">
           {formConfig.fields.map(field => (
             <div key={field.id}>
               {field.type === 'checkbox' ? (
@@ -341,15 +548,15 @@ export const StateFormFiller = ({ vehicle, onComplete, onCancel }: StateFormFill
             </div>
           ))}
         </div>
-      </ScrollArea>
+      </div>
 
-      <div className="flex gap-3 justify-end pt-2 border-t border-border">
+      <div className="flex gap-3 justify-end pt-4 border-t border-border flex-shrink-0">
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
         <Button 
           variant="outline" 
-          onClick={handlePreviewPDF}
+          onClick={handleViewOriginalForm}
           disabled={!formConfig.pdfPath}
           className="gap-2"
         >
@@ -357,10 +564,15 @@ export const StateFormFiller = ({ vehicle, onComplete, onCancel }: StateFormFill
           View Original Form
         </Button>
         <Button 
-          onClick={() => setShowPreview(true)}
-          disabled={!isFormValid()}
+          onClick={handlePreview}
+          disabled={!isFormValid() || isDownloading}
           className="gap-2"
         >
+          {isDownloading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <FileText className="h-4 w-4" />
+          )}
           Preview & Download
         </Button>
       </div>
