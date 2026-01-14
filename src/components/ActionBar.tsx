@@ -10,9 +10,11 @@ import {
 } from '@/components/ui/dialog';
 import { useState } from 'react';
 import { VehicleTitle } from '@/types/extraction';
+import { StateFormFiller } from './StateFormFiller';
 
 interface ActionBarProps {
-  vehicles: VehicleTitle[];
+  vehicle?: VehicleTitle; // Single vehicle for detail page
+  vehicles?: VehicleTitle[]; // Multiple vehicles for overview
   onSave: () => void;
   onExport: () => void;
   onPush: () => void;
@@ -21,7 +23,8 @@ interface ActionBarProps {
 }
 
 export const ActionBar = ({
-  vehicles,
+  vehicle,
+  vehicles = [],
   onSave,
   onExport,
   onPush,
@@ -29,11 +32,33 @@ export const ActionBar = ({
   hasUnsavedChanges,
 }: ActionBarProps) => {
   const [showPushDialog, setShowPushDialog] = useState(false);
+  const [showFormFiller, setShowFormFiller] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
 
-  const editedFieldsCount = vehicles.reduce((acc, v) => {
+  // Use single vehicle if provided, otherwise use vehicles array
+  const activeVehicle = vehicle || vehicles[0];
+  const allVehicles = vehicle ? [vehicle] : vehicles;
+
+  const editedFieldsCount = allVehicles.reduce((acc, v) => {
     return acc + v.fields.filter(f => f.isEdited).length;
   }, 0);
+
+  const handlePushClick = () => {
+    if (activeVehicle) {
+      // Show form filler first
+      setShowFormFiller(true);
+    } else {
+      setShowPushDialog(true);
+    }
+  };
+
+  const handleFormComplete = async () => {
+    setShowFormFiller(false);
+    setIsPushing(true);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    onPush();
+    setIsPushing(false);
+  };
 
   const handlePushConfirm = async () => {
     setIsPushing(true);
@@ -71,15 +96,46 @@ export const ActionBar = ({
         <div className="flex-1" />
 
         <Button
-          onClick={() => setShowPushDialog(true)}
-          disabled={hasUnsavedChanges}
+          onClick={handlePushClick}
+          disabled={hasUnsavedChanges || isPushing}
           className="gap-2"
         >
-          <Send className="h-4 w-4" />
-          Push / Publish Data
+          {isPushing ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Pushing...
+            </>
+          ) : (
+            <>
+              <Send className="h-4 w-4" />
+              Push / Publish Data
+            </>
+          )}
         </Button>
       </div>
 
+      {/* Form Filler Dialog */}
+      {activeVehicle && (
+        <Dialog open={showFormFiller} onOpenChange={setShowFormFiller}>
+          <DialogContent className="max-w-2xl max-h-[90vh]">
+            <DialogHeader>
+              <DialogTitle>Fill State Form</DialogTitle>
+              <DialogDescription>
+                Complete the required state form for Vehicle VIN ending {activeVehicle.vinEnding}. 
+                Fields have been pre-filled from extracted data.
+              </DialogDescription>
+            </DialogHeader>
+
+            <StateFormFiller
+              vehicle={activeVehicle}
+              onComplete={handleFormComplete}
+              onCancel={() => setShowFormFiller(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Legacy Push Dialog for multiple vehicles */}
       <Dialog open={showPushDialog} onOpenChange={setShowPushDialog}>
         <DialogContent>
           <DialogHeader>
@@ -94,7 +150,7 @@ export const ActionBar = ({
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-muted-foreground">Vehicles</p>
-                  <p className="font-semibold text-foreground">{vehicles.length}</p>
+                  <p className="font-semibold text-foreground">{allVehicles.length}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Edited Fields</p>
@@ -104,11 +160,11 @@ export const ActionBar = ({
             </div>
 
             <ul className="space-y-2">
-              {vehicles.map((vehicle, index) => (
-                <li key={vehicle.id} className="flex items-center gap-2 text-sm">
+              {allVehicles.map((v, index) => (
+                <li key={v.id} className="flex items-center gap-2 text-sm">
                   <span className="status-dot status-dot-success" />
                   <span>
-                    Vehicle {index + 1} – VIN ending {vehicle.vinEnding}
+                    Vehicle {index + 1} – VIN ending {v.vinEnding}
                   </span>
                 </li>
               ))}
