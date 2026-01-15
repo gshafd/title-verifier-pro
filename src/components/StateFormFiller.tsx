@@ -166,9 +166,18 @@ export const StateFormFiller = ({ vehicle, onComplete, onCancel }: StateFormFill
 
   // Generate filled PDF using pdf-lib
   const generateFilledPDF = async (data: Record<string, string | boolean>): Promise<Uint8Array> => {
+    // If no PDF template available, create a new document
+    if (!formConfig.pdfPath) {
+      return await createNewFilledPDF(data);
+    }
+
     try {
       // Try to load the original PDF template
       const response = await fetch(formConfig.pdfPath);
+      if (!response.ok) {
+        console.warn('PDF template not found, creating new document');
+        return await createNewFilledPDF(data);
+      }
       const existingPdfBytes = await response.arrayBuffer();
       const pdfDoc = await PDFDocument.load(existingPdfBytes, { ignoreEncryption: true });
       
