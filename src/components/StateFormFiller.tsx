@@ -1,11 +1,7 @@
 import { useState, useEffect } from 'react';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, Eye, FileText, CheckCircle2, Loader2 } from 'lucide-react';
+import { Download, FileText, CheckCircle2, Loader2 } from 'lucide-react';
 import { VehicleTitle } from '@/types/extraction';
 
 // State form configurations with PDF field mappings
@@ -126,9 +122,10 @@ interface StateFormFillerProps {
 
 export const StateFormFiller = ({ vehicle, onComplete, onCancel }: StateFormFillerProps) => {
   const [formData, setFormData] = useState<Record<string, string | boolean>>({});
-  const [showPreview, setShowPreview] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Get the state from the vehicle's extracted fields
   const stateField = vehicle.fields.find(f => f.fieldName === 'Title State');
@@ -143,8 +140,8 @@ export const StateFormFiller = ({ vehicle, onComplete, onCancel }: StateFormFill
     return field?.extractedValue || '';
   };
 
-  // Initialize form with extracted data
-  useEffect(() => {
+  // Initialize form data from extracted values
+  const initializeFormData = () => {
     const initialData: Record<string, string | boolean> = {};
     
     formConfig.fields.forEach(field => {
@@ -164,15 +161,11 @@ export const StateFormFiller = ({ vehicle, onComplete, onCancel }: StateFormFill
       initialData['yearMake'] = `${year} ${make}`.trim();
     }
 
-    setFormData(initialData);
-  }, [vehicle, formConfig, vehicleState]);
-
-  const handleInputChange = (fieldId: string, value: string | boolean) => {
-    setFormData(prev => ({ ...prev, [fieldId]: value }));
+    return initialData;
   };
 
   // Generate filled PDF using pdf-lib
-  const generateFilledPDF = async (): Promise<Uint8Array> => {
+  const generateFilledPDF = async (data: Record<string, string | boolean>): Promise<Uint8Array> => {
     try {
       // Try to load the original PDF template
       const response = await fetch(formConfig.pdfPath);
@@ -187,7 +180,7 @@ export const StateFormFiller = ({ vehicle, onComplete, onCancel }: StateFormFill
         // If the PDF has form fields, try to fill them
         if (fields.length > 0) {
           formConfig.fields.forEach(fieldConfig => {
-            const value = formData[fieldConfig.id];
+            const value = data[fieldConfig.id];
             if (value !== undefined && value !== '') {
               try {
                 if (fieldConfig.type === 'checkbox') {
@@ -258,7 +251,7 @@ export const StateFormFiller = ({ vehicle, onComplete, onCancel }: StateFormFill
       let col2Y = yPosition;
 
       formConfig.fields.forEach((field) => {
-        const value = formData[field.id];
+        const value = data[field.id];
         if (value !== undefined && value !== '' && value !== false) {
           const displayValue = field.type === 'checkbox' ? '☑' : String(value);
           const text = `${field.label}: ${displayValue}`;
@@ -292,12 +285,12 @@ export const StateFormFiller = ({ vehicle, onComplete, onCancel }: StateFormFill
     } catch (error) {
       console.error('Error loading PDF template, creating new document:', error);
       // Fallback: Create a new PDF document with the form data
-      return await createNewFilledPDF();
+      return await createNewFilledPDF(data);
     }
   };
 
   // Create a new PDF with form data (fallback)
-  const createNewFilledPDF = async (): Promise<Uint8Array> => {
+  const createNewFilledPDF = async (data: Record<string, string | boolean>): Promise<Uint8Array> => {
     const pdfDoc = await PDFDocument.create();
     const page = pdfDoc.addPage([612, 792]); // Letter size
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -354,7 +347,7 @@ export const StateFormFiller = ({ vehicle, onComplete, onCancel }: StateFormFill
         return;
       }
 
-      const value = formData[field.id];
+      const value = data[field.id];
       let displayValue: string;
 
       if (field.type === 'checkbox') {
@@ -397,55 +390,30 @@ export const StateFormFiller = ({ vehicle, onComplete, onCancel }: StateFormFill
     return await pdfDoc.save();
   };
 
-  const handleDownload = async () => {
-    setIsDownloading(true);
-    
-    try {
-      const pdfBytes = await generateFilledPDF();
-      const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${vehicleState}_Duplicate_Title_${vehicle.vinEnding}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-    }
-    
-    setIsDownloading(false);
-  };
+  // Initialize and generate PDF preview immediately on mount
+  useEffect(() => {
+    const generatePreview = async () => {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        const data = initializeFormData();
+        setFormData(data);
+        
+        const pdfBytes = await generateFilledPDF(data);
+        const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        setPreviewUrl(url);
+      } catch (err) {
+        console.error('Error generating PDF:', err);
+        setError('Failed to generate PDF preview');
+      }
+      
+      setIsLoading(false);
+    };
 
-  const handlePreview = async () => {
-    setIsDownloading(true);
-    try {
-      const pdfBytes = await generateFilledPDF();
-      const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      setPreviewUrl(url);
-      setShowPreview(true);
-    } catch (error) {
-      console.error('Error generating preview:', error);
-    }
-    setIsDownloading(false);
-  };
-
-  const handleViewOriginalForm = () => {
-    if (formConfig.pdfPath) {
-      window.open(formConfig.pdfPath, '_blank');
-    }
-  };
-
-  const isFormValid = () => {
-    return formConfig.fields
-      .filter(f => f.required)
-      .every(f => {
-        const value = formData[f.id];
-        return value !== undefined && value !== '' && value !== false;
-      });
-  };
+    generatePreview();
+  }, [vehicle]);
 
   // Cleanup preview URL on unmount
   useEffect(() => {
@@ -456,124 +424,95 @@ export const StateFormFiller = ({ vehicle, onComplete, onCancel }: StateFormFill
     };
   }, [previewUrl]);
 
-  if (showPreview && previewUrl) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-foreground">PDF Preview</h3>
-          <Button variant="outline" size="sm" onClick={() => setShowPreview(false)}>
-            Back to Edit
-          </Button>
-        </div>
-        
-        <div className="border border-border rounded-lg overflow-hidden bg-muted">
-          <iframe
-            src={previewUrl}
-            className="w-full h-[400px]"
-            title="PDF Preview"
-          />
-        </div>
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    
+    try {
+      const pdfBytes = await generateFilledPDF(formData);
+      const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${vehicleState}_Duplicate_Title_${vehicle.vinEnding}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+    }
+    
+    setIsDownloading(false);
+  };
 
-        <div className="flex gap-3 justify-end">
-          <Button variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={handleDownload}
-            disabled={isDownloading}
-            className="gap-2"
-          >
-            <Download className="h-4 w-4" />
-            {isDownloading ? 'Generating...' : 'Download PDF'}
-          </Button>
-          <Button onClick={onComplete} className="gap-2">
-            <CheckCircle2 className="h-4 w-4" />
-            Complete & Push
-          </Button>
-        </div>
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 space-y-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Generating filled form...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 space-y-4">
+        <FileText className="h-8 w-8 text-destructive" />
+        <p className="text-sm text-destructive">{error}</p>
+        <Button variant="outline" onClick={onCancel}>
+          Close
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full max-h-[60vh]">
-      <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 mb-4 flex-shrink-0">
+    <div className="space-y-4">
+      {/* Header Info */}
+      <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
         <div className="flex items-center gap-2 text-sm">
           <FileText className="h-4 w-4 text-primary" />
           <span className="font-medium text-foreground">
-            State Form: {vehicleState}
+            {formConfig.name}
           </span>
         </div>
         <p className="text-xs text-muted-foreground mt-1">
-          {formConfig.name}
+          Pre-filled with extracted data for VIN ending {vehicle.vinEnding}
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto pr-2 min-h-0">
-        <div className="space-y-4 pb-4">
-          {formConfig.fields.map(field => (
-            <div key={field.id}>
-              {field.type === 'checkbox' ? (
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id={field.id}
-                    checked={formData[field.id] as boolean || false}
-                    onCheckedChange={(checked) => handleInputChange(field.id, checked as boolean)}
-                  />
-                  <Label htmlFor={field.id} className="text-sm cursor-pointer">
-                    {field.label}
-                  </Label>
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <Label htmlFor={field.id} className="text-sm">
-                    {field.label}
-                    {field.required && <span className="text-destructive ml-1">*</span>}
-                  </Label>
-                  <Input
-                    id={field.id}
-                    type={field.type === 'date' ? 'date' : 'text'}
-                    value={formData[field.id] as string || ''}
-                    onChange={(e) => handleInputChange(field.id, e.target.value)}
-                    className="h-9"
-                  />
-                  {field.mappedField && formData[field.id] && (
-                    <p className="text-xs text-muted-foreground">
-                      Auto-filled from extracted data
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+      {/* PDF Preview */}
+      <div className="border border-border rounded-lg overflow-hidden bg-muted">
+        {previewUrl ? (
+          <iframe
+            src={previewUrl}
+            className="w-full h-[450px]"
+            title="Filled PDF Preview"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-[450px]">
+            <p className="text-muted-foreground">No preview available</p>
+          </div>
+        )}
       </div>
 
-      <div className="flex gap-3 justify-end pt-4 border-t border-border flex-shrink-0">
+      {/* Actions */}
+      <div className="flex gap-3 justify-end pt-2">
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
         <Button 
           variant="outline" 
-          onClick={handleViewOriginalForm}
-          disabled={!formConfig.pdfPath}
+          onClick={handleDownload}
+          disabled={isDownloading || !previewUrl}
           className="gap-2"
         >
-          <Eye className="h-4 w-4" />
-          View Original Form
+          <Download className="h-4 w-4" />
+          {isDownloading ? 'Downloading...' : 'Download PDF'}
         </Button>
-        <Button 
-          onClick={handlePreview}
-          disabled={!isFormValid() || isDownloading}
-          className="gap-2"
-        >
-          {isDownloading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <FileText className="h-4 w-4" />
-          )}
-          Preview & Download
+        <Button onClick={onComplete} className="gap-2">
+          <CheckCircle2 className="h-4 w-4" />
+          Complete
         </Button>
       </div>
     </div>
