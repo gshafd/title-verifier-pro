@@ -476,37 +476,24 @@ export const StateFormFiller = ({ vehicle, onComplete, onCancel }: StateFormFill
   }
 
   return (
-    <div className="space-y-4">
-      {/* Header Info */}
-      <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
-        <div className="flex items-center gap-2 text-sm">
-          <FileText className="h-4 w-4 text-primary" />
-          <span className="font-medium text-foreground">
-            {formConfig.name}
-          </span>
-        </div>
-        <p className="text-xs text-muted-foreground mt-1">
-          Pre-filled with extracted data for VIN ending {vehicle.vinEnding}
-        </p>
-      </div>
-
-      {/* PDF Preview */}
-      <div className="border border-border rounded-lg overflow-hidden bg-muted">
+    <div className="flex flex-col h-full">
+      {/* PDF Preview - Takes full height */}
+      <div className="flex-1 min-h-0 bg-muted">
         {previewUrl ? (
           <iframe
             src={previewUrl}
-            className="w-full h-[450px]"
+            className="w-full h-full"
             title="Filled PDF Preview"
           />
         ) : (
-          <div className="flex items-center justify-center h-[450px]">
+          <div className="flex items-center justify-center h-full">
             <p className="text-muted-foreground">No preview available</p>
           </div>
         )}
       </div>
 
-      {/* Actions */}
-      <div className="flex gap-3 justify-end pt-2">
+      {/* Actions - Fixed at bottom */}
+      <div className="flex gap-3 justify-end p-4 border-t border-border bg-background">
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>

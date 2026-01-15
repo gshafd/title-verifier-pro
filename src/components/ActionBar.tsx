@@ -117,22 +117,12 @@ export const ActionBar = ({
       {/* Form Filler Dialog */}
       {activeVehicle && (
         <Dialog open={showFormFiller} onOpenChange={setShowFormFiller}>
-          <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
-            <DialogHeader className="flex-shrink-0">
-              <DialogTitle>Fill State Form</DialogTitle>
-              <DialogDescription>
-                Complete the required state form for Vehicle VIN ending {activeVehicle.vinEnding}. 
-                Fields have been pre-filled from extracted data.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="flex-1 overflow-y-auto min-h-0">
-              <StateFormFiller
-                vehicle={activeVehicle}
-                onComplete={handleFormComplete}
-                onCancel={() => setShowFormFiller(false)}
-              />
-            </div>
+          <DialogContent className="max-w-5xl w-[90vw] h-[85vh] flex flex-col p-0">
+            <StateFormFiller
+              vehicle={activeVehicle}
+              onComplete={handleFormComplete}
+              onCancel={() => setShowFormFiller(false)}
+            />
           </DialogContent>
         </Dialog>
       )}
