@@ -131,8 +131,8 @@ export const StateFormFiller = ({ vehicle, onComplete, onCancel }: StateFormFill
   const stateField = vehicle.fields.find(f => f.fieldName === 'Title State');
   const vehicleState = stateField?.extractedValue || 'Unknown';
   
-  // Get the appropriate form configuration
-  const formConfig = STATE_FORMS[vehicleState] || DEFAULT_FORM;
+  // Get the appropriate form configuration - fallback to California if state not supported
+  const formConfig = STATE_FORMS[vehicleState] || STATE_FORMS['California'];
 
   // Helper to get field value from extraction
   const getExtractedValue = (fieldName: string): string => {
