@@ -15,6 +15,7 @@ import { ConfidenceBadge } from './ConfidenceBadge';
 import { CitationLink } from './CitationLink';
 import { cn } from '@/lib/utils';
 import { validateField, ValidationResult } from '@/data/accountData';
+import { validateLienholderName, LienholderValidationResult } from '@/data/lienholderVariations';
 
 interface ExtractionTableProps {
   fields: ExtractedField[];
@@ -48,6 +49,29 @@ const ValidationBadge = ({ result }: { result: ValidationResult }) => {
         </p>
       )}
     </div>
+  );
+};
+
+const LienholderVariationBadge = ({ result }: { result: LienholderValidationResult }) => {
+  if (result.status === 'no_data') {
+    return <span className="text-xs text-muted-foreground italic">No data</span>;
+  }
+  if (result.status === 'match') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
+        <CheckCircle2 className="h-3.5 w-3.5" />
+        Match
+        {result.matchedCanonical && (
+          <span className="text-muted-foreground font-normal">({result.matchedCanonical})</span>
+        )}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
+      <AlertTriangle className="h-3.5 w-3.5" />
+      Mismatch
+    </span>
   );
 };
 
@@ -85,6 +109,7 @@ export const ExtractionTable = ({
             <TableHead className="w-[250px] font-semibold">Field Name</TableHead>
             <TableHead className="font-semibold">Extracted Value</TableHead>
             <TableHead className="w-[180px] font-semibold">Validation</TableHead>
+            <TableHead className="w-[200px] font-semibold">Variations DB</TableHead>
             <TableHead className="w-[140px] font-semibold">Confidence</TableHead>
             <TableHead className="w-[120px] font-semibold">Citation</TableHead>
             <TableHead className="w-[100px] font-semibold text-center">Edit</TableHead>
@@ -95,6 +120,10 @@ export const ExtractionTable = ({
             const isEditing = editingField === field.fieldName;
             const hasLowConfidence = field.confidence < 70 && field.extractedValue !== null;
             const validation = validateField(vehicleVin, field.fieldName, field.extractedValue);
+            const isLienholderName = field.fieldName === 'Lienholder Name';
+            const lienholderValidation = isLienholderName
+              ? validateLienholderName(field.extractedValue)
+              : null;
 
             return (
               <TableRow
@@ -138,6 +167,13 @@ export const ExtractionTable = ({
                 </TableCell>
                 <TableCell>
                   <ValidationBadge result={validation} />
+                </TableCell>
+                <TableCell>
+                  {isLienholderName && lienholderValidation ? (
+                    <LienholderVariationBadge result={lienholderValidation} />
+                  ) : (
+                    <span className="text-xs text-muted-foreground italic">—</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   <ConfidenceBadge
