@@ -25,55 +25,56 @@ interface ExtractionTableProps {
   onCitationClick: (citation: Citation) => void;
 }
 
-const ValidationBadge = ({ result }: { result: ValidationResult }) => {
-  if (result.status === 'no_data') {
-    return <span className="text-xs text-muted-foreground italic">No data</span>;
-  }
-  if (result.status === 'match') {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
-        <CheckCircle2 className="h-3.5 w-3.5" />
-        Match
-      </span>
-    );
-  }
+const ValidationBadge = ({ result, lienholderResult }: { result: ValidationResult; lienholderResult?: LienholderValidationResult | null }) => {
   return (
-    <div className="space-y-0.5">
-      <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
-        <AlertTriangle className="h-3.5 w-3.5" />
-        Mismatch
-      </span>
-      {result.accountValue !== null && (
-        <p className="text-xs text-muted-foreground truncate max-w-[180px]" title={result.accountValue}>
-          "{result.accountValue}"
-        </p>
+    <div className="space-y-1">
+      {/* Account validation */}
+      {result.status === 'no_data' ? (
+        <span className="text-xs text-muted-foreground italic">No data</span>
+      ) : result.status === 'match' ? (
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          Match
+        </span>
+      ) : (
+        <div className="space-y-0.5">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Mismatch
+          </span>
+          {result.accountValue !== null && (
+            <p className="text-xs text-muted-foreground truncate max-w-[180px]" title={result.accountValue}>
+              "{result.accountValue}"
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Lienholder variations validation */}
+      {lienholderResult && lienholderResult.status !== 'no_data' && (
+        <div className="border-t border-border pt-1 mt-1">
+          {lienholderResult.status === 'match' ? (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-success flex-wrap">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Variations: Match
+              {lienholderResult.matchedCanonical && (
+                <span className="text-muted-foreground font-normal">({lienholderResult.matchedCanonical})</span>
+              )}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Variations: Mismatch
+            </span>
+          )}
+        </div>
       )}
     </div>
   );
 };
 
-const LienholderVariationBadge = ({ result }: { result: LienholderValidationResult }) => {
-  if (result.status === 'no_data') {
-    return <span className="text-xs text-muted-foreground italic">No data</span>;
-  }
-  if (result.status === 'match') {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
-        <CheckCircle2 className="h-3.5 w-3.5" />
-        Match
-        {result.matchedCanonical && (
-          <span className="text-muted-foreground font-normal">({result.matchedCanonical})</span>
-        )}
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
-      <AlertTriangle className="h-3.5 w-3.5" />
-      Mismatch
-    </span>
-  );
-};
+
+
 
 export const ExtractionTable = ({
   fields,
@@ -108,8 +109,7 @@ export const ExtractionTable = ({
           <TableRow className="bg-secondary/30 hover:bg-secondary/30">
             <TableHead className="w-[250px] font-semibold">Field Name</TableHead>
             <TableHead className="font-semibold">Extracted Value</TableHead>
-            <TableHead className="w-[180px] font-semibold">Validation</TableHead>
-            <TableHead className="w-[200px] font-semibold">Variations DB</TableHead>
+            <TableHead className="w-[220px] font-semibold">Validation</TableHead>
             <TableHead className="w-[140px] font-semibold">Confidence</TableHead>
             <TableHead className="w-[120px] font-semibold">Citation</TableHead>
             <TableHead className="w-[100px] font-semibold text-center">Edit</TableHead>
@@ -166,14 +166,7 @@ export const ExtractionTable = ({
                   )}
                 </TableCell>
                 <TableCell>
-                  <ValidationBadge result={validation} />
-                </TableCell>
-                <TableCell>
-                  {isLienholderName && lienholderValidation ? (
-                    <LienholderVariationBadge result={lienholderValidation} />
-                  ) : (
-                    <span className="text-xs text-muted-foreground italic">—</span>
-                  )}
+                  <ValidationBadge result={validation} lienholderResult={lienholderValidation} />
                 </TableCell>
                 <TableCell>
                   <ConfidenceBadge
