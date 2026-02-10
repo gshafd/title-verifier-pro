@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pencil, Check, X, RotateCcw } from 'lucide-react';
+import { Pencil, Check, X, RotateCcw, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -14,16 +14,46 @@ import { ExtractedField, Citation } from '@/types/extraction';
 import { ConfidenceBadge } from './ConfidenceBadge';
 import { CitationLink } from './CitationLink';
 import { cn } from '@/lib/utils';
+import { validateField, ValidationResult } from '@/data/accountData';
 
 interface ExtractionTableProps {
   fields: ExtractedField[];
+  vehicleVin: string | null;
   onFieldUpdate: (fieldName: string, newValue: string) => void;
   onFieldRevert: (fieldName: string) => void;
   onCitationClick: (citation: Citation) => void;
 }
 
+const ValidationBadge = ({ result }: { result: ValidationResult }) => {
+  if (result.status === 'no_data') {
+    return <span className="text-xs text-muted-foreground italic">No data</span>;
+  }
+  if (result.status === 'match') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
+        <CheckCircle2 className="h-3.5 w-3.5" />
+        Match
+      </span>
+    );
+  }
+  return (
+    <div className="space-y-0.5">
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
+        <AlertTriangle className="h-3.5 w-3.5" />
+        Mismatch
+      </span>
+      {result.accountValue !== null && (
+        <p className="text-xs text-muted-foreground truncate max-w-[180px]" title={result.accountValue}>
+          "{result.accountValue}"
+        </p>
+      )}
+    </div>
+  );
+};
+
 export const ExtractionTable = ({
   fields,
+  vehicleVin,
   onFieldUpdate,
   onFieldRevert,
   onCitationClick,
@@ -54,6 +84,7 @@ export const ExtractionTable = ({
           <TableRow className="bg-secondary/30 hover:bg-secondary/30">
             <TableHead className="w-[250px] font-semibold">Field Name</TableHead>
             <TableHead className="font-semibold">Extracted Value</TableHead>
+            <TableHead className="w-[180px] font-semibold">Validation</TableHead>
             <TableHead className="w-[140px] font-semibold">Confidence</TableHead>
             <TableHead className="w-[120px] font-semibold">Citation</TableHead>
             <TableHead className="w-[100px] font-semibold text-center">Edit</TableHead>
@@ -63,6 +94,7 @@ export const ExtractionTable = ({
           {fields.map((field) => {
             const isEditing = editingField === field.fieldName;
             const hasLowConfidence = field.confidence < 70 && field.extractedValue !== null;
+            const validation = validateField(vehicleVin, field.fieldName, field.extractedValue);
 
             return (
               <TableRow
@@ -103,6 +135,9 @@ export const ExtractionTable = ({
                       )}
                     </div>
                   )}
+                </TableCell>
+                <TableCell>
+                  <ValidationBadge result={validation} />
                 </TableCell>
                 <TableCell>
                   <ConfidenceBadge

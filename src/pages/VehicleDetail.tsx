@@ -77,6 +77,7 @@ const VehicleDetail = () => {
           {/* Extraction Table */}
           <ExtractionTable
             fields={selectedVehicle.fields}
+            vehicleVin={selectedVehicle.fullVin}
             onFieldUpdate={(fieldName, newValue) =>
               updateField(selectedVehicle.id, fieldName, newValue)
             }
